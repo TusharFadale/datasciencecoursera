@@ -24,6 +24,7 @@
 library(data.table)
 library(dplyr)
 library(tidyr)
+library(Hmisc)
 
 # Definition datasets
 act_label <- read.table("./UCI HAR Dataset/activity_labels.txt")
@@ -57,3 +58,6 @@ x_extract$actLabels <- act_label$V2[y_merge$V1]
 # 4. Appropriately labels the data set with descriptive variable names. 
 
 # 5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+itd <- aggregate(x_extract, by=list(x_extract$actLabels), FUN=mean)
+
+write.table(itd, file = "run_analysis.csv", row.names = FALSE)
