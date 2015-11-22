@@ -56,8 +56,13 @@ x_extract <- x_merge[,l3]
 x_extract$actLabels <- act_label$V2[y_merge$V1]
 
 # 4. Appropriately labels the data set with descriptive variable names. 
+temp1 <- feature$V2[l3]
+temp2 <- c(as.character(temp1), "actLabels")
+temp3 <- as.factor(temp2)
+colnames(x_extract) <- temp3
 
 # 5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
 itd <- aggregate(x_extract, by=list(x_extract$actLabels), FUN=mean)
+itd <- collect(itd, -actLabels)
 
-write.table(itd, file = "run_analysis.csv", row.names = FALSE)
+write.table(itd, file = "run_analysis.txt", row.names = FALSE)
