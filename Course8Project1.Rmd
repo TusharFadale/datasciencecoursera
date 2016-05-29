@@ -1,0 +1,193 @@
+---
+title: "HAR - Study the quality of activities"
+author: "Tushar Fadale"
+date: "May 28, 2016"
+output: html_document
+subtitle: '(Course 8: Practical Machine Learning - Course Project)'
+---
+
+## Executive Summary
+The human activity recognition (HAR) research has traditionally focused on discriminating between different activities, i.e. to predict "which" activity was performed at a specific point in time (like with the Daily Living Activities dataset above). The approach for the Weight Lifting Exercises dataset is to investigate "how (well)" an activity was performed by the wearer. Read more: http://groupware.les.inf.puc-rio.br/har#ixzz4A4Gkm3R1
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. All participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. 
+
+Based on the following analsys, the best model will be the Random Forest using the subset "loc" of predictors.
+
+``` {r, echo = FALSE, message=FALSE, warning=FALSE, eval=TRUE}
+library(dplyr)
+library(knitr)
+library(caret)
+library(parallel)
+library(doParallel)
+inputTrain <- read.csv("./pml-training.csv")
+inputValidate <- read.csv("./pml-testing.csv")
+set.seed(19621207)
+inTrain <- createDataPartition(y=inputTrain$classe, p = 3/4)[[1]]
+```
+## Data clensing & Predictors
+Of the two datasets provded, the training data for this project (available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv) was used for training and cross validation. The training data has `r dim(inputTrain)[1]` rows and `r dim(inputTrain)[2]` coloumns or potential predictors. Of all the potential predictors only the following columns had any meaningful data. Let us refer to these predictors as "all" predictors. Using these "all" (54) predictors we create the training_all (75%) and testing_all (25%) datasets. 
+
+``` {r, echo=TRUE, message=FALSE, warning=FALSE, eval=TRUE}
+col_all <- c(
+  "num_window",
+  "roll_belt","pitch_belt","yaw_belt","total_accel_belt",
+  "gyros_belt_x","gyros_belt_y","gyros_belt_z",
+  "accel_belt_x","accel_belt_y","accel_belt_z",
+  "magnet_belt_x","magnet_belt_y","magnet_belt_z",
+  "roll_arm","pitch_arm","yaw_arm","total_accel_arm",
+  "gyros_arm_x","gyros_arm_y","gyros_arm_z",
+  "accel_arm_x","accel_arm_y","accel_arm_z",
+  "magnet_arm_x","magnet_arm_y","magnet_arm_z",
+  "roll_dumbbell","pitch_dumbbell","yaw_dumbbell","total_accel_dumbbell",
+  "gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z",
+  "accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z",
+  "magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z",
+  "roll_forearm","pitch_forearm","yaw_forearm","total_accel_forearm",
+  "gyros_forearm_x","gyros_forearm_y","gyros_forearm_z",
+  "accel_forearm_x","accel_forearm_y","accel_forearm_z",
+  "magnet_forearm_x","magnet_forearm_y","magnet_forearm_z",
+  "classe"
+)
+training_all <- inputTrain[inTrain,col_all]
+testing_all <- inputTrain[-inTrain,col_all]
+```
+On further analysis we can narrow down the number of predictors to summarized data for the sensor locations. Let us refer to these predictors as "loc" predictors. Using these "loc" (18) predictors we create the training_all (75%) and testing_all (25%) datasets.
+
+``` {r, echo = TRUE, message=FALSE, warning=FALSE, eval=TRUE}
+col_loc <- c(
+  "num_window",
+  "roll_belt","pitch_belt","yaw_belt","total_accel_belt",
+  "roll_arm","pitch_arm","yaw_arm","total_accel_arm",
+  "roll_dumbbell","pitch_dumbbell","yaw_dumbbell","total_accel_dumbbell",
+  "roll_forearm","pitch_forearm","yaw_forearm","total_accel_forearm",
+  "classe"
+)
+training_loc <- inputTrain[inTrain,col_loc]
+testing_loc <- inputTrain[-inTrain,col_loc]
+```
+
+## Model Selection, training and predictions
+
+Three models were chosen:
+1. Predicting with trees
+2. Predicting with random forest
+3. Predicting with boosting with trees
+
+These models were then evaluated against the 2 sets of predictors, viz, "all" and "loc". 
+
+``` {r, echo = FALSE, message=FALSE, warning=FALSE, eval=TRUE}
+# Predicting with Trees
+if (file.exists("modFit_loc_rpart.rda")) {
+  load("modFit_loc_rpart.rda")
+} else {
+  modFit_loc_rpart <- train(classe ~ ., method="rpart", data=training_loc)
+  save(modFit_loc_rpart, file = "modFit_loc_rpart.rda")
+}
+pred_loc_rpart <- predict(modFit_loc_rpart, testing_loc)
+# Predicting with Random Forest
+if (file.exists("modFit_loc_rf.rda")) {
+  load("modFit_loc_rf.rda")
+} else {
+  modFit_loc_rf <- train(classe ~ ., method="rf", data=training_loc)
+  save(modFit_loc_rf, file = "modFit_loc_rf.rda")
+}
+pred_loc_rf <- predict(modFit_loc_rf, testing_loc)
+# Boasting with Trees
+if (file.exists("modFit_loc_gbm.rda")) {
+  load("modFit_loc_gbm.rda")
+} else {
+  modFit_loc_gbm <- train(classe ~ ., method = "gbm", data=training_loc)
+  save(modFit_loc_gbm, file = "modFit_loc_gbm.rda")
+}
+pred_loc_gbm <- predict(modFit_loc_gbm, testing_loc)
+
+# Predicting with Trees
+if (file.exists("modFit_all_rpart.rda")) {
+  load("modFit_all_rpart.rda")
+} else {
+  myCluster <- makeCluster(detectCores() - 1)
+  registerDoParallel(myCluster)
+  fitControl <- trainControl(method = "cv", number = 10, allowParallel = TRUE)
+  modFit_all_rpart <- train(classe ~ ., method="rpart", data=training_all, trControl = fitControl)
+  stopCluster(myCluster)
+  save(modFit_all_rpart, file = "modFit_all_rpart.rda")
+}
+pred_all_rpart <- predict(modFit_all_rpart, testing_all)
+# Predicting with Random Forest
+if (file.exists("modFit_all_rf.rda")) {
+  load("modFit_all_rf.rda")
+} else {
+  myCluster <- makeCluster(detectCores() - 1)
+  registerDoParallel(myCluster)
+  fitControl <- trainControl(method = "cv", number = 10, allowParallel = TRUE)
+  modFit_all_rf <- train(classe ~ ., method="rf", data=training_all, trControl = fitControl)
+  stopCluster(myCluster)
+  save(modFit_all_rf, file = "modFit_all_rf.rda")
+}
+pred_all_rf <- predict(modFit_all_rf, testing_all)
+# Boasting with Trees
+if (file.exists("modFit_all_gbm.rda")) {
+  load("modFit_all_gbm.rda")
+} else {
+  myCluster <- makeCluster(detectCores() - 1)
+  registerDoParallel(myCluster)
+  fitControl <- trainControl(method = "cv", number = 10, allowParallel = TRUE)
+  modFit_all_gbm <- train(classe ~ ., method="gbm", data=training_all, trControl = fitControl)
+  stopCluster(myCluster)
+  save(modFit_all_gbm, file = "modFit_all_gbm.rda")
+}
+pred_all_gbm <- predict(modFit_all_gbm, testing_all)
+
+```
+
+## Model evaluation
+The Accuracies of these 3 models against the 2 predictor sets were evaluated with ConfusionMatrix function.
+
+``` {r, echo = FALSE, message=FALSE, warning=FALSE, eval=TRUE}
+# Predicting with Trees
+cm_all_rpart <- confusionMatrix(pred_all_rpart, testing_all$classe)
+cm_loc_rpart <- confusionMatrix(pred_loc_rpart, testing_loc$classe)
+# Predicting with Random Forest
+cm_all_rf <- confusionMatrix(pred_all_rf, testing_all$classe)
+cm_loc_rf <- confusionMatrix(pred_loc_rf, testing_loc$classe)
+# Boasting with Trees
+cm_all_gbm <- confusionMatrix(pred_all_gbm, testing_all$classe)
+cm_loc_gbm <- confusionMatrix(pred_loc_gbm, testing_loc$classe)
+
+```
+
+Based on the following results, the best model will be the Random Forest using the subset "loc" of predictors.
+
+``` {r, echo = TRUE, message=FALSE, warning=FALSE, eval=TRUE}
+# Predicting with Trees
+cm_all_rpart$overall
+cm_loc_rpart$overall
+# Predicting with Random Forest
+cm_all_rf$overall
+cm_loc_rf$overall
+# Boasting with Trees
+cm_all_gbm$overall
+cm_loc_gbm$overall
+
+```
+
+
+# Model testing
+The second dataset provded to test(available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv) which has 20 different test cases was used to predict the outcoes of these 20 test cases and presented below.
+
+``` {r, echo = TRUE, message=FALSE, warning=FALSE, eval=TRUE}
+col_predictors <- c(
+  "num_window",
+  "roll_belt","pitch_belt","yaw_belt","total_accel_belt",
+  "roll_arm","pitch_arm","yaw_arm","total_accel_arm",
+  "roll_dumbbell","pitch_dumbbell","yaw_dumbbell","total_accel_dumbbell",
+  "roll_forearm","pitch_forearm","yaw_forearm","total_accel_forearm"
+)
+validate_loc <- inputValidate[,col_predictors]
+predict(modFit_loc_rf, validate_loc)
+```
+
+
